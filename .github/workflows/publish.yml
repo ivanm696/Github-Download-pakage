@@ -1,0 +1,44 @@
+name: 馃摝 Publish to GitHub Packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "袙械褉褋懈褟 写谢褟 锌褍斜谢懈泻邪褑懈懈 (薪邪锌褉懈屑械褉: 1.2.1)"
+        required: false
+
+jobs:
+  publish:
+    name: Publish npm package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 馃摜 Checkout 褉械锌芯蟹懈褌芯褉懈褟
+        uses: actions/checkout@v4
+
+      - name: 馃煝 校褋褌邪薪芯胁泻邪 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@ivanm696"
+          cache: "npm"
+
+      - name: 馃摝 校褋褌邪薪芯胁泻邪 蟹邪胁懈褋懈屑芯褋褌械泄
+        run: npm ci --prefer-offline || npm install
+
+      - name: 馃敤 小斜芯褉泻邪 锌械褉械写 锌褍斜谢懈泻邪褑懈械泄
+        run: npm run build
+
+      - name: 馃И 孝械褋褌褘 锌械褉械写 锌褍斜谢懈泻邪褑懈械泄
+        run: npm test
+
+      - name: 馃殌 袩褍斜谢懈泻邪褑懈褟 锌邪泻械褌邪
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
