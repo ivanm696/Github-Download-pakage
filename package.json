@@ -1,0 +1,40 @@
+{
+  "name": "@ivanm696/robot-package",
+  "version": "1.2.0",
+  "description": "Автоматический пакет: сборка, тесты, деплой через GitHub Actions",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node src/tests/robot.test.js",
+    "build": "node -e \"const r=require('./src');r.process('build',{target:'production'}).then(()=>process.exit(0)).catch(()=>process.exit(1))\"",
+    "deploy": "node -e \"const r=require('./src');r.process('deploy',{env:'production'}).then(()=>process.exit(0)).catch(()=>process.exit(1))\""
+  },
+  "keywords": [
+    "robot",
+    "automation",
+    "ci-cd",
+    "github-actions",
+    "npm-package"
+  ],
+  "author": "Ivan <your-email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ivanm696/Github-Download-pakage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ivanm696/Github-Download-pakage/issues"
+  },
+  "homepage": "https://github.com/ivanm696/Github-Download-pakage#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
+}
