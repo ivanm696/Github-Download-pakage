@@ -1,0 +1,55 @@
+name: 馃殌 Deploy
+
+on:
+  push:
+    branches: ["main", "master"]
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "小褉械写邪 写械锌谢芯褟"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    name: Deploy 鈫� ${{ github.event.inputs.environment || 'staging' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    steps:
+      - name: 馃摜 Checkout
+        uses: actions/checkout@v4
+
+      - name: 馃煝 校褋褌邪薪芯胁泻邪 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+
+      - name: 馃摝 校褋褌邪薪芯胁泻邪 蟹邪胁懈褋懈屑芯褋褌械泄
+        run: npm ci --prefer-offline || npm install
+
+      - name: 馃敤 小斜芯褉泻邪
+        run: npm run build
+
+      - name: 馃И 孝械褋褌褘
+        run: npm test
+
+      - name: 馃殌 袛械锌谢芯泄
+        run: npm run deploy
+        env:
+          DEPLOY_ENV: ${{ github.event.inputs.environment || 'staging' }}
+
+      - name: 鉁� 校胁械写芯屑谢械薪懈械 芯斜 褍褋锌械褏械
+        if: success()
+        run: echo "鉁� 袛械锌谢芯泄 胁 ${{ github.event.inputs.environment || 'staging' }} 胁褘锌芯谢薪械薪 褍褋锌械褕薪芯!"
+
+      - name: 鉂� 校胁械写芯屑谢械薪懈械 芯斜 芯褕懈斜泻械
+        if: failure()
+        run: echo "鉂� 袛械锌谢芯泄 蟹邪胁械褉褕懈谢褋褟 褋 芯褕懈斜泻芯泄!"
