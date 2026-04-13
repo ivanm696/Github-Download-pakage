@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>robot-package — автоматический движок процессов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080b10;
+    --surface: #0e1219;
+    --border: rgba(52,211,153,0.15);
+    --green: #34d399;
+    --green-dim: #1d9e75;
+    --green-glow: rgba(52,211,153,0.08);
+    --purple: #818cf8;
+    --amber: #fbbf24;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── GRID NOISE ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(52,211,153,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(52,211,153,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── GLOW ORBS ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 0;
+    animation: drift 12s ease-in-out infinite alternate;
+  }
+  .orb1 { width: 500px; height: 500px; background: #1d9e75; top: -150px; left: -150px; }
+  .orb2 { width: 400px; height: 400px; background: #4f46e5; bottom: -100px; right: -100px; animation-delay: -6s; }
+  @keyframes drift { from { transform: translate(0,0); } to { transform: translate(30px,20px); } }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(20px);
+    background: rgba(8,11,16,0.8);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+  .nav-logo {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--green);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nav-logo::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .nav-links { display: flex; gap: 2rem; }
+  .nav-links a {
+    font-size: 13px; font-weight: 500;
+    color: var(--muted); text-decoration: none;
+    transition: color 0.2s;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-family: var(--mono);
+  }
+  .nav-links a:hover { color: var(--green); }
+
+  .nav-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--green);
+    background: var(--green-glow);
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 6rem 2rem 4rem;
+  }
+
+  .hero-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.2s forwards;
+  }
+
+  .hero h1 {
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    margin-bottom: 1rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.35s forwards;
+  }
+  .hero h1 span { color: var(--green); }
+
+  .hero-sub {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    color: var(--muted);
+    max-width: 540px;
+    margin: 0 auto 2.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.5s forwards;
+  }
+
+  .hero-actions {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.65s forwards;
+    margin-bottom: 3rem;
+  }
+
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px;
+    background: var(--green);
+    color: #080b10;
+    font-family: var(--mono);
+    font-size: 13px; font-weight: 700;
+    border: none; border-radius: 6px;
+    cursor: pointer; text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-primary:hover { background: #6ee7b7; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(52,211,153,0.3); }
+
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer; text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--green); color: var(--green); transform: translateY(-2px); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── TERMINAL WINDOW ── */
+  .terminal-window {
+    width: 100%; max-width: 700px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(14,18,25,0.9);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 60px rgba(52,211,153,0.07);
+    opacity: 0;
+    animation: fadeUp 0.6s 0.8s forwards;
+    text-align: left;
+  }
+  .term-bar {
+    background: #131820;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .term-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .term-code {
+    padding: 20px 22px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 2;
+  }
+  .tc-gray  { color: var(--muted); }
+  .tc-green { color: var(--green); }
+  .tc-purple{ color: var(--purple); }
+  .tc-amber { color: var(--amber); }
+  .tc-white { color: var(--text); }
+  .cursor-blink::after {
+    content: '█';
+    color: var(--green);
+    animation: blink 1s infinite;
+    font-size: 12px;
+  }
+
+  /* ── SECTION ── */
+  section {
+    position: relative; z-index: 1;
+    padding: 6rem 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 0.75rem;
+  }
+  .section-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+  }
+  .section-sub {
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 500px;
+    margin-bottom: 3rem;
+  }
+
+  /* ── FEATURES ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .feature-card {
+    background: var(--surface);
+    padding: 2rem;
+    transition: background 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feature-card:hover { background: #111820; }
+  .feature-card:hover::before { opacity: 1; }
+
+  .feature-icon {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    background: var(--green-glow);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 1.25rem;
+    letter-spacing: 0.1em;
+  }
+  .feature-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .feature-desc { font-size: 0.9rem; color: var(--muted); line-height: 1.7; }
+
+  /* ── PIPELINE ── */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 3rem;
+  }
+  .pipe-step {
+    flex: 1;
+    padding: 1.75rem 1.5rem;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: relative;
+    transition: background 0.3s;
+  }
+  .pipe-step:last-child { border-right: none; }
+  .pipe-step:hover { background: #111820; }
+  .pipe-step::after {
+    content: '→';
+    position: absolute;
+    right: -14px; top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--mono);
+    color: var(--green);
+    font-size: 18px;
+    z-index: 2;
+  }
+  .pipe-step:last-child::after { display: none; }
+  .pipe-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--green);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.15em;
+  }
+  .pipe-name {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .pipe-cmd {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── CODE BLOCK ── */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .code-header {
+    background: #131820;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .code-lang {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+  .code-copy {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: none;
+    transition: all 0.2s;
+  }
+  .code-copy:hover { color: var(--green); border-color: var(--green); }
+  .code-body {
+    padding: 1.25rem 1.5rem;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  /* ── STATS ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 4rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: var(--mono);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--green);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .stat-label { font-size: 0.85rem; color: var(--muted); }
+
+  /* ── BADGES ROW ── */
+  .badges {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 3rem;
+  }
+  .badge-item {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid;
+    letter-spacing: 0.05em;
+  }
+  .badge-green { color: var(--green); border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.05); }
+  .badge-purple { color: var(--purple); border-color: rgba(129,140,248,0.3); background: rgba(129,140,248,0.05); }
+  .badge-amber  { color: var(--amber);  border-color: rgba(251,191,36,0.3);  background: rgba(251,191,36,0.05); }
+
+  /* ── ROADMAP ── */
+  .roadmap {
+    display: flex; flex-direction: column; gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .roadmap-item {
+    display: flex; align-items: flex-start; gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    transition: background 0.2s;
+  }
+  .roadmap-item:last-child { border-bottom: none; }
+  .roadmap-item:hover { background: #111820; }
+  .rm-check {
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+  }
+  .rm-check.done { background: var(--green-glow); border-color: var(--green); }
+  .rm-text { font-size: 0.95rem; color: var(--text); }
+  .rm-tag {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    flex-shrink: 0;
+  }
+  .rm-done { color: var(--green); background: var(--green-glow); border: 1px solid rgba(52,211,153,0.2); }
+  .rm-next { color: var(--amber); background: rgba(251,191,36,0.05); border: 1px solid rgba(251,191,36,0.2); }
+  .rm-plan { color: var(--muted); background: transparent; border: 1px solid var(--border); }
+
+  /* ── CTA ── */
+  .cta-section {
+    text-align: center;
+    padding: 6rem 2rem;
+    position: relative; z-index: 1;
+    border-top: 1px solid var(--border);
+  }
+  .cta-section h2 {
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 1rem;
+  }
+  .cta-section p { color: var(--muted); margin-bottom: 2rem; font-size: 1.05rem; }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  footer a { color: var(--green); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* ── SCROLL REVEAL ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 700px) {
+    .pipeline { flex-direction: column; }
+    .pipe-step::after { content: '↓'; right: auto; left: 50%; bottom: -16px; top: auto; transform: translateX(-50%); }
+    .nav-links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">robot-package</div>
+  <div class="nav-links">
+    <a href="#features">Возможности</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#install">Установка</a>
+    <a href="#roadmap">Roadmap</a>
+  </div>
+  <div class="nav-badge">v1.2.0</div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-label">@ivanm696 / Github-Download-pakage</div>
+  <h1>Robot<br><span>Package</span></h1>
+  <p class="hero-sub">Автоматический движок процессов: сборка, тесты и деплой через GitHub Actions одной командой.</p>
+  <div class="hero-actions">
+    <a class="btn-primary" href="#install">
+      <span>⚡</span> Установить
+    </a>
+    <a class="btn-ghost" href="https://github.com/ivanm696/Github-Download-pakage" target="_blank">
+      <span>◈</span> GitHub
+    </a>
+  </div>
+
+  <div class="terminal-window">
+    <div class="term-bar">
+      <div class="term-dot" style="background:#ff5f56"></div>
+      <div class="term-dot" style="background:#ffbd2e"></div>
+      <div class="term-dot" style="background:#27c93f"></div>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:8px;">terminal — robot-package</span>
+    </div>
+    <div class="term-code" id="typewriter"></div>
+  </div>
+</div>
+
+<!-- STATS -->
+<section id="stats" class="reveal">
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" data-count="10">0</div><div class="stat-label">Тестов пройдено</div></div>
+    <div class="stat-card"><div class="stat-num" data-count="3">0</div><div class="stat-label">GitHub Workflows</div></div>
+    <div class="stat-card"><div class="stat-num" data-count="0">0</div><div class="stat-label">Зависимостей</div></div>
+    <div class="stat-card"><div class="stat-num" data-count="1782">0</div><div class="stat-label">мс — полный цикл</div></div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="reveal">
+  <div class="section-label">// возможности</div>
+  <h2 class="section-title">Всё что нужно<br>для автоматизации</h2>
+  <p class="section-sub">Минимум настройки — максимум автоматизации. Нулевые внешние зависимости.</p>
+
+  <div class="badges">
+    <span class="badge-item badge-green">CI · passing</span>
+    <span class="badge-item badge-green">tests · 10/10</span>
+    <span class="badge-item badge-purple">node · ≥16</span>
+    <span class="badge-item badge-amber">MIT license</span>
+    <span class="badge-item badge-green">npm · @ivanm696</span>
+  </div>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">BUILD</div>
+      <div class="feature-title">Автосборка</div>
+      <div class="feature-desc">Каждый push запускает сборку: транспиляция, линтинг, минификация. Результат в dist/.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">TEST</div>
+      <div class="feature-title">Тесты на Node assert</div>
+      <div class="feature-desc">10 тестов без единой зависимости. Матрица Node 18 / 20 / 22 на ubuntu-latest.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">DEPLOY</div>
+      <div class="feature-title">Деплой в 1 клик</div>
+      <div class="feature-desc">Workflow deploy.yml умеет staging и production. Выбор среды через inputs.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">PUBLISH</div>
+      <div class="feature-title">GitHub Packages</div>
+      <div class="feature-desc">При создании Release пакет автоматически публикуется в npm.pkg.github.com.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">API</div>
+      <div class="feature-title">Простой API</div>
+      <div class="feature-desc">robot.start() · robot.process() · robot.status() — три метода для управления всем.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">ZERO</div>
+      <div class="feature-title">Zero deps</div>
+      <div class="feature-desc">Только встроенные модули Node.js. Никаких уязвимостей в зависимостях.</div>
+    </div>
+  </div>
+</section>
+
+<!-- PIPELINE -->
+<section id="pipeline" class="reveal">
+  <div class="section-label">// pipeline</div>
+  <h2 class="section-title">Каждый коммит<br>запускает процессы</h2>
+  <p class="section-sub">Автоматический конвейер от кода до деплоя.</p>
+
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-num">01 · PUSH</div>
+      <div class="pipe-name">git push</div>
+      <div class="pipe-cmd">origin main</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">02 · CI</div>
+      <div class="pipe-name">Build & Test</div>
+      <div class="pipe-cmd">npm run build && npm test</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">03 · DEPLOY</div>
+      <div class="pipe-name">Deploy</div>
+      <div class="pipe-cmd">staging → production</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">04 · PUBLISH</div>
+      <div class="pipe-name">Release</div>
+      <div class="pipe-cmd">npm.pkg.github.com</div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install" class="reveal">
+  <div class="section-label">// установка</div>
+  <h2 class="section-title">Начать за 30 секунд</h2>
+  <p class="section-sub">Клонируй, установи, запусти.</p>
+
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">BASH · клонирование</span>
+        <button class="code-copy" onclick="copy(this,'git clone https://github.com/ivanm696/Github-Download-pakage.git')">copy</button>
+      </div>
+      <div class="code-body">
+        <span class="tc-green">$</span> <span class="tc-white">git clone https://github.com/ivanm696/Github-Download-pakage.git</span><br>
+        <span class="tc-green">$</span> <span class="tc-white">cd Github-Download-pakage</span><br>
+        <span class="tc-green">$</span> <span class="tc-white">npm install</span>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">JAVASCRIPT · использование</span>
+        <button class="code-copy" onclick="copy(this,`const robot = require('@ivanm696/robot-package');\nrobot.start();\nrobot.process('build', { target: 'production' })\n  .then(() => console.log('done'));`)">copy</button>
+      </div>
+      <div class="code-body">
+        <span class="tc-purple">const</span> <span class="tc-white">robot</span> <span class="tc-amber">=</span> <span class="tc-white">require(</span><span class="tc-green">'@ivanm696/robot-package'</span><span class="tc-white">);</span><br>
+        <span class="tc-white">robot</span><span class="tc-amber">.</span><span class="tc-purple">start</span><span class="tc-white">();</span><br><br>
+        <span class="tc-white">robot</span><span class="tc-amber">.</span><span class="tc-purple">process</span><span class="tc-white">(</span><span class="tc-green">'build'</span><span class="tc-white">, { target: </span><span class="tc-green">'production'</span><span class="tc-white"> })</span><br>
+        <span class="tc-white">&nbsp;&nbsp;</span><span class="tc-amber">.</span><span class="tc-purple">then</span><span class="tc-white">(() </span><span class="tc-amber">=></span><span class="tc-white"> console</span><span class="tc-amber">.</span><span class="tc-white">log(</span><span class="tc-green">'✅ готово'</span><span class="tc-white">));</span>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">BASH · запуск тестов</span>
+        <button class="code-copy" onclick="copy(this,'npm test')">copy</button>
+      </div>
+      <div class="code-body">
+        <span class="tc-green">$</span> <span class="tc-white">npm test</span><br>
+        <span class="tc-gray">&nbsp; ✔ robot.start() возвращает статус running</span><br>
+        <span class="tc-gray">&nbsp; ✔ robot.process("build") завершается успешно</span><br>
+        <span class="tc-gray">&nbsp; ...</span><br>
+        <span class="tc-green">&nbsp; 📊 Результат: 10 пройдено, 0 провалено</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap" class="reveal">
+  <div class="section-label">// roadmap</div>
+  <h2 class="section-title">План развития</h2>
+  <p class="section-sub">Живой артефакт продолжает развиваться.</p>
+
+  <div class="roadmap">
+    <div class="roadmap-item">
+      <div class="rm-check done">✓</div>
+      <div class="rm-text">Базовый пакет с API (start, process, status)</div>
+      <span class="rm-tag rm-done">done · v1.0</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="rm-check done">✓</div>
+      <div class="rm-text">GitHub Actions: CI · Deploy · Publish</div>
+      <span class="rm-tag rm-done">done · v1.0</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="rm-check done">✓</div>
+      <div class="rm-text">10 тестов без зависимостей (Node assert)</div>
+      <span class="rm-tag rm-done">done · v1.1</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="rm-check done">✓</div>
+      <div class="rm-text">Матрица CI: Node 18 / 20 / 22</div>
+      <span class="rm-tag rm-done">done · v1.2</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="rm-check"></div>
+      <div class="rm-text">REST API для управления процессами</div>
+      <span class="rm-tag rm-next">next · v1.3</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="rm-check"></div>
+      <div class="rm-text">Docker-образ для деплоя в контейнер</div>
+      <span class="rm-tag rm-next">next · v1.3</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="rm-check"></div>
+      <div class="rm-text">CLI-команды: robot build / test / deploy</div>
+      <span class="rm-tag rm-plan">planned</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="rm-check"></div>
+      <div class="rm-text">Мониторинг и логирование процессов</div>
+      <span class="rm-tag rm-plan">planned</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="rm-check"></div>
+      <div class="rm-text">Поддержка нескольких языков (i18n)</div>
+      <span class="rm-tag rm-plan">planned</span>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-section reveal">
+  <h2>Готов к запуску?</h2>
+  <p>Каждый коммит — живой артефакт. Присоединяйся.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <a class="btn-primary" href="https://github.com/ivanm696/Github-Download-pakage" target="_blank">⭐ Star на GitHub</a>
+    <a class="btn-ghost" href="https://github.com/ivanm696/Github-Download-pakage/fork" target="_blank">◈ Fork</a>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div>© 2025 <a href="https://github.com/ivanm696">@ivanm696</a> · MIT License</div>
+  <div style="display:flex;gap:1.5rem;">
+    <a href="https://github.com/ivanm696/Github-Download-pakage">GitHub</a>
+    <a href="https://github.com/ivanm696/Github-Download-pakage/issues">Issues</a>
+    <a href="https://github.com/ivanm696/Github-Download-pakage/blob/main/README.md">Docs</a>
+  </div>
+</footer>
+
+<script>
+// ── TYPEWRITER ──────────────────────────────────────────────
+const lines = [
+  {cls:'tc-gray',  t:'$ npm install @ivanm696/robot-package'},
+  {cls:'tc-green', t:'added 0 packages — zero dependencies ✓'},
+  {cls:'tc-gray',  t:''},
+  {cls:'tc-gray',  t:'$ node -e "require(\'.\').start()"'},
+  {cls:'tc-green', t:'🤖 Robot Package запущен! · v1.2.0'},
+  {cls:'tc-gray',  t:''},
+  {cls:'tc-gray',  t:'$ npm test'},
+  {cls:'tc-green', t:'  ✔ 10/10 тестов прошло · EXIT 0'},
+];
+
+async function typewriter(){
+  const el = document.getElementById('typewriter');
+  for(const line of lines){
+    const div = document.createElement('div');
+    div.style.fontFamily = 'var(--mono)';
+    div.style.fontSize = '13px';
+    div.style.lineHeight = '2';
+    div.className = line.cls;
+    el.appendChild(div);
+    if(!line.t){ continue; }
+    for(let i=0;i<line.t.length;i++){
+      div.textContent = line.t.substring(0,i+1);
+      await new Promise(r=>setTimeout(r, line.cls==='tc-gray'?18:8));
+    }
+    await new Promise(r=>setTimeout(r,120));
+  }
+  const cur = document.createElement('span');
+  cur.className = 'cursor-blink';
+  el.appendChild(cur);
+}
+setTimeout(typewriter, 1200);
+
+// ── COUNT-UP ────────────────────────────────────────────────
+function countUp(el, target, duration=1200){
+  const start = performance.now();
+  function step(now){
+    const p = Math.min((now-start)/duration, 1);
+    const ease = 1 - Math.pow(1-p, 3);
+    el.textContent = Math.round(ease * target).toLocaleString('ru');
+    if(p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── SCROLL REVEAL ───────────────────────────────────────────
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if(entry.isIntersecting){
+      entry.target.classList.add('visible');
+      const counts = entry.target.querySelectorAll('[data-count]');
+      counts.forEach(el => countUp(el, +el.dataset.count));
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ── COPY ────────────────────────────────────────────────────
+function copy(btn, text){
+  navigator.clipboard.writeText(text).then(()=>{
+    const orig = btn.textContent;
+    btn.textContent = 'copied!';
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'var(--green)';
+    setTimeout(()=>{ btn.textContent = orig; btn.style.color=''; btn.style.borderColor=''; },1500);
+  });
+}
+</script>
+</body>
+</html>
